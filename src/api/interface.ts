@@ -17,7 +17,7 @@ import { post, get } from './http';
  * @param windows 窗口大小
  * @returns
  */
-export const getDiscords = (index: any[], attr: any[], windows: any=7) => {
+export const getDiscords = (index: any[], attr: any[], windows: any = 7) => {
   return post('getDiscords', { index, attr, windows });
 };
 
@@ -27,6 +27,15 @@ export const getDiscords = (index: any[], attr: any[], windows: any=7) => {
  */
 export const deleteCSV = () => {
   return post('deleteCSV', {});
+};
+
+/**
+ * 返回选中散点在地图上的位置
+ * @param index 选中散点index
+ * @returns
+ */
+export const getMapData = (index: number[]) => {
+  return post('getMapData', { index });
 };
 
 /**
@@ -43,30 +52,57 @@ export const getHull = (points: any[], alpha = 1.0) => {
  * 获取数据整体趋势
  * @returns
  */
-export const getTrend = () => {
-  return get('getTrend');
+export const getTrend = (window: number, index: any[]) => {
+  return post('getTrend', { window, index });
 };
 
 /**
  * 获取聚类散点数据
- * @returns 
+ * @param nClusters
+ * @param perplexity
+ * @returns
  */
-export const getScatter = () => {
-  return get('getScatter');
+export const getScatter = (nClusters: number, perplexity: number) => {
+  return post('getScatter', { nClusters, perplexity });
 };
 
 /**
  * 获取两个降维散点图数据
+ * @param index
+ * @param perplexityT
+ * @param perplexityM
  * @returns
  */
-export const getDRTM = () => {
-  return get('getDRTM');
+export const getDRTM = (
+  index: number[],
+  options: number[],
+  perplexityT: number,
+  perplexityM: number
+) => {
+  return post('getDRTM', { index, options, perplexityT, perplexityM });
 };
 
 /**
  * 获取时间和属性维度的贡献值
+ * @returns
+ */
+export const getContribute = (index: number[]) => {
+  return post('getContribute', { index });
+};
+
+/**
+ * 获取嵌入特征
+ * @returns
+ */
+export const getFeature = () => {
+  return get('getFeature');
+};
+
+/**
+ * 获取所选样本间两两之间的每个属性相似度
+ * @param index 
  * @returns 
  */
-export const getContribute = () =>{
-  return get('getContribute')
-}
+export const getSimilarity = (index: number[]) => {
+  return post('getSimilarity', { index });
+};

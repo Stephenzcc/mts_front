@@ -3,6 +3,13 @@ import * as echarts from 'echarts';
 import { useUpdateEffect } from 'react-use';
 import china from '../assets/china.json';
 import beijing from '../assets/beijing.json';
+import { getMapData } from '../api/interface';
+
+type Props = {
+  selectIndex: any;
+  setEffectScatter: any;
+  setEffectScatterP: any;
+};
 
 //@ts-ignore
 echarts.registerMap('china', { geoJSON: china });
@@ -11,23 +18,52 @@ echarts.registerMap('china', { geoJSON: china });
  * @param props
  * @returns
  */
-const ChinaMap: React.FC = (props) => {
+const ChinaMap: React.FC<Props> = (props) => {
+  const { selectIndex, setEffectScatter, setEffectScatterP } = props;
   const chartDom = React.useRef<any>();
   const instance = React.useRef<any>();
-  const [option, setOption]: any[] = useState({});
+  const [option, setOption] = useState<any>({});
+  const timer = React.useRef<any>(null);
+  // location散点
+  const [location, setLocation] = useState<{ name: string; value: number[] }[]>(
+    []
+  );
 
   // 下钻
   const enterProv = () => {
     instance.current.hideLoading();
-    instance.current.on('click', ({ name }: any) => {
-      if (name === '北京市') {
-        setOption({
-          ...option,
-          geo: { ...option.geo, zoom: 0.8, map: 'beijing' },
-        });
-        // 注册地图
-        //@ts-ignore
-        echarts.registerMap('beijing', { geoJSON: beijing });
+
+    instance.current.on('click', function (params: any) {
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        const { name, componentType, data } = params;
+        // if (name === '北京市' && componentType === 'geo') {
+        //   setOption({
+        //     ...option,
+        //     geo: { ...option.geo, zoom: 0.8, map: 'beijing' },
+        //   });
+        //   // 注册地图
+        //   //@ts-ignore
+        //   echarts.registerMap('beijing', { geoJSON: beijing });
+        // }
+        if (componentType === 'geo') {
+          setEffectScatterP((prev: any) => {
+            return [...prev, name];
+          });
+          setEffectScatter([]);
+        }
+        if (componentType === 'series') {
+          setEffectScatter([data['name']]);
+          setEffectScatterP([]);
+        }
+      }, 500);
+    });
+    instance.current.on('dblclick', function (params: any) {
+      clearTimeout(timer.current);
+      const { name, componentType, data } = params;
+      if (componentType === 'geo') {
+        setEffectScatterP([name]);
+        setEffectScatter([]);
       }
     });
   };
@@ -68,6 +104,18 @@ const ChinaMap: React.FC = (props) => {
     }
   }, [option]);
 
+  // location更新
+  useUpdateEffect(() => {
+    if (selectIndex.length) {
+      getMapData(selectIndex).then((res: any) => {
+        const series: any[] = [...option.series];
+        console.log(res['location']);
+        series[0].data = res['location'];
+        setOption({ ...option, series });
+      });
+    }
+  }, [selectIndex]);
+
   // 初始化
   useEffect(() => {
     setOption({
@@ -91,13 +139,14 @@ const ChinaMap: React.FC = (props) => {
         label: {
           // 通常状态下的样式
           normal: {
-            show: true,
+            show: false,
             textStyle: {
               color: '#fff',
             },
           },
           // 鼠标放上去的样式
           emphasis: {
+            show: false,
             textStyle: {
               color: '#fff',
             },
@@ -107,7 +156,7 @@ const ChinaMap: React.FC = (props) => {
         zoom: 1.5,
         // 地图区域的样式设置
         itemStyle: {
-          borderColor: 'rgba(248, 190, 159, 1)',
+          borderColor: '#bbbbbb',
           borderWidth: 1,
           areaColor: {
             type: 'radial',
@@ -117,24 +166,24 @@ const ChinaMap: React.FC = (props) => {
             colorStops: [
               {
                 offset: 0,
-                color: 'rgba(248, 190, 159, 0)', // 0% 处的颜色
+                color: '#eeeeee44', // 0% 处的颜色
               },
               {
                 offset: 1,
-                color: 'rgba(248, 190, 159, 0.2)', // 100% 处的颜色
+                color: '#eeeeee88', // 100% 处的颜色
               },
             ],
             globalCoord: false, // 缺省为 false
           },
-          shadowColor: 'rgba(248, 190, 159, 1)',
+          shadowColor: '#eeeeee',
           shadowOffsetX: -2,
           shadowOffsetY: 2,
           shadowBlur: 10,
-          // 鼠标放上去高亮的样式
         },
+        // 鼠标放上去高亮的样式
         emphasis: {
           itemStyle: {
-            areaColor: '#389BB7',
+            areaColor: '#999999',
             borderWidth: 0,
           },
         },
@@ -146,7 +195,7 @@ const ChinaMap: React.FC = (props) => {
           symbol: 'circle',
           legendHoverLink: true,
           symbolSize: (value: any) => {
-            return Math.log2(value[2] * 100);
+            return Math.log2(value[2] + 1) * 8;
           },
           // 这里渲染标志里的内容以及样式
           // label: {
@@ -158,16 +207,16 @@ const ChinaMap: React.FC = (props) => {
           // },
           // 标志的样式
           itemStyle: {
-            color: '#36C5F0aa',
+            color: '#72c1cbdd',
             shadowBlur: 2,
-            shadowColor: 'D8BC37',
+            shadowColor: '#72c1cbdd',
             opacity: 0.8,
           },
           // 数据格式，其中name,value是必要的，value的前两个值是数据点的经纬度，其他的数据格式可以自定义
           // 至于如何展示，完全是靠上面的formatter来自己定义的
           data: [
-            { name: '西藏市', value: [91.23, 29.5, 1] },
-            { name: '黑龙江', value: [128.03, 47.01, 2] },
+            { name: '北京市', value: [116.46, 39.92, 6] },
+            { name: '上海市', value: [121.48, 31.22, 3] },
           ],
           showEffectOn: 'render',
           rippleEffect: {

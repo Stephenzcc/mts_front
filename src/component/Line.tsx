@@ -6,6 +6,7 @@ import { ATTR, COLOR } from '../utils/color';
 import { useUpdateEffect } from 'react-use';
 
 type Props = {
+  isNorm: boolean;
   discords: any;
   setDiscords: any;
   selectOptions: any;
@@ -18,9 +19,10 @@ type Props = {
  * @returns
  */
 const Line: React.FC<Props> = (props) => {
-  const { discords, setDiscords, selectOptions, selectIndex, windows } = {
-    ...props,
-  };
+  const { isNorm, discords, setDiscords, selectOptions, selectIndex, windows } =
+    {
+      ...props,
+    };
 
   const container = useRef(null);
   const instance: any = useRef(null);
@@ -41,19 +43,15 @@ const Line: React.FC<Props> = (props) => {
 
   // 选中散点时触发
   useUpdateEffect(() => {
-    if (selectIndex.length) {
-      // export const getSeq = (index: any[], attr: any[]) => {
-      //   return get(`getSeqByAttr?index=${index.join('-')}&attr=${attr.join('-')}`);
-      // };
+    if (selectIndex.length && selectIndex.length < 10) {
       // getSeq(selectedIndex, selectOptions).then((res: any) => {
       //   console.log(res);
       // });
       getDiscords(selectIndex, selectOptions, windows).then((res: any) => {
         const { discords } = res;
-        console.log(res);
         setDiscords(discords);
         setLineDataLink(
-          `http://127.0.0.1:5000/getSeqByAttr?index=${selectIndex.join(
+          `http://127.0.0.1:5000/getSeqByAttr?norm=${isNorm}&index=${selectIndex.join(
             '-'
           )}&attr=${selectOptions.join('-')}&windows=${windows}`
         );
@@ -62,7 +60,7 @@ const Line: React.FC<Props> = (props) => {
         deleteCSV();
       };
     }
-  }, [selectIndex, selectOptions, windows]);
+  }, [selectIndex, selectOptions, windows, isNorm]);
 
   function initChart(container: any) {
     const chart = new Chart({
@@ -76,15 +74,15 @@ const Line: React.FC<Props> = (props) => {
     // 声明可视化
     chart.data({
       type: 'fetch',
-      value:
-        `http://127.0.0.1:5000/getSeqByAttr?index=${selectIndex.join(
-          '-'
-        )}&attr=${ATTR.join(
-          '-'
-        )}&windows=7`,
+      value: `http://127.0.0.1:5000/getSeqByAttr?norm=${isNorm}&index=${selectIndex.join(
+        '-'
+      )}&attr=${ATTR.join('-')}&windows=7`,
       format: 'csv',
     });
-    chart.interaction('elementHighlight');
+    chart
+      .interaction('elementHighlight')
+      // .interaction('fisheye')
+      .interaction('tooltip', { series: true });
     chart.scale('x', {
       compare: (a: any, b: any) => {
         const c = parseInt(a.split('-')[0]) - parseInt(b.split('-')[0]);
@@ -94,13 +92,12 @@ const Line: React.FC<Props> = (props) => {
       },
     });
     chart.axis('x', {
-      title: 'time',
+      title: '',
       tick: true,
       tickLength: 12,
       tickFilter: (datum: any, index: any, data: any) => {
         return datum.split('-')[1] === '01';
       },
-      grid: true,
     });
 
     // 异常区域
@@ -109,18 +106,23 @@ const Line: React.FC<Props> = (props) => {
       .data(discords)
       .encode('x', 'date')
       .encode('color')
-      .scale('color', { independent: true, range: ['#f7686f88'] })
+      .scale('color', {
+        independent: true,
+        // 指定映射后的颜色
+        range: ['#aaaaaa66'],
+      })
       .legend('color', false)
       .style('fillOpacity', 0.75);
 
     // 折线图
     chart
       .line()
+
       .scale('y', { independent: true })
       .axis('y', {
         position: 'left',
         titleFill: '#000',
-        title: 'content ()',
+        title: 'value',
       })
       .encode('x', 'date')
       .encode('y', 'value')
@@ -129,10 +131,23 @@ const Line: React.FC<Props> = (props) => {
       .encode('color', 'attr')
       .scale('color', {
         independent: true,
+        domain: ATTR,
         // 指定映射后的颜色
         range: COLOR.map((item: string) => {
           return item.slice(0, 7);
         }),
+      })
+      .state('inactive', { opacity: 0.3 })
+      .tooltip({
+        title: (d: any) => d.date,
+        items: [
+          (d: any, i: any, data: any, column: any) => {
+            return {
+              name: d.sample,
+              value: d.value,
+            };
+          },
+        ],
       });
 
     // 柱状图
@@ -141,7 +156,7 @@ const Line: React.FC<Props> = (props) => {
       .axis('y', {
         position: 'right',
         titleFill: '#000',
-        title: 'mp ()',
+        title: 'Matrix profile',
       })
       .transform({ type: 'stackY' })
       .encode('x', 'date')
@@ -149,10 +164,12 @@ const Line: React.FC<Props> = (props) => {
       .encode('color', 'attr')
       .scale('color', {
         independent: true,
+        domain: ATTR,
         // 指定映射后的颜色
         range: COLOR,
       })
-      .legend('color', false);
+      .legend('color', false)
+      .tooltip({});
 
     // 渲染可视化
     chart.render();
@@ -165,7 +182,6 @@ const Line: React.FC<Props> = (props) => {
     lineDataLink: any = undefined,
     discords: any = undefined
   ) {
-    console.log(lineDataLink, discords);
     if (lineDataLink !== '') {
       chart.data({
         type: 'fetch',

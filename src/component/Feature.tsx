@@ -1,81 +1,160 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Chart } from '@antv/g2';
+import * as echarts from 'echarts';
+import { getFeature } from '../api/interface';
+import { useUpdateEffect } from 'react-use';
 
 /**
  * @param props
  * @returns
  */
 const Feature: React.FC = (props) => {
-  const container = useRef(null);
-  const instance: any = useRef(null);
-  const [data, setData]: any[] = useState();
+  const chartDom = React.useRef<any>();
+  const instance = React.useRef<any>();
+  const [option, setOption] = useState<any>({});
+  // 数据
+  const [data, setData] = useState<number[][][]>([]);
+  // x坐标轴
+  const [xIndex, setXIndex] = useState<string[][]>([]);
+  // y坐标轴
+  const [yIndex, setYIndex] = useState<number[]>([]);
+  // y坐标轴
+  const [max, setMax] = useState<number>(1);
+  // y坐标轴
+  const [min, setMin] = useState<number>(0);
 
-  useEffect(() => {
-    if (!instance.current) {
-      instance.current = renderGanttChart(container.current);
-    }
-  }, []);
-
-  // useEffect(() => {
-  //   if (instance.current) {
-  //     const interval = instance.current.getNodesByType('interval')[0];
-  //     interval.data(data);
-  //     // 重新渲染
-  //     instance.current.render();
-  //   }
-  // }, [data]);
-
-  // 渲染热力图
-  function renderGanttChart(container: any) {
-    const chart = new Chart({
-      container,
-      autoFit: true,
+  const getEmbedding = () => {
+    getFeature().then((res: any) => {
+      const { feature, xIndex: x, yIndex: y, max: mx, min: mn } = res;
+      setData(feature);
+      setXIndex(x);
+      setYIndex(y);
+      setMax(mx);
+      setMin(mn);
     });
+  };
 
-    chart
-      .data([
-        { name: 1, year: 1, value: 1 },
-        { name: 2, year: 1, value: 1 },
-        { name: 3, year: 1, value: 1 },
-        { name: 4, year: 1, value: 1 },
-        { name: 5, year: 1, value: 1 },
-        { name: 6, year: 1, value: 1 },
-        { name: 1, year: 2, value: 1 },
-        { name: 2, year: 2, value: 1 },
-        { name: 3, year: 2, value: 1 },
-        { name: 4, year: 2, value: 1 },
-        { name: 5, year: 2, value: 1 },
-        { name: 6, year: 2, value: 1 },
-      ])
-      .axis('x', { labelAutoRotate: false })
-      .axis('y', {
-        tickFilter: (d: any) => d % 10 === 0,
-        position: 'top',
-      })
-      .scale('color', {
-        type: 'sequential',
-        palette: 'puRd',
-        relations: [
-          [(d: any) => d === null, '#eee'],
-          [0, '#fff'],
-        ],
-      });
+  // 获取dom初始化echart
+  useEffect(() => {
+    instance.current =
+      echarts.getInstanceByDom(chartDom.current) ||
+      //@ts-ignore
+      echarts.init(chartDom.current, null);
+    return (): void => {
+      echarts.dispose(instance.current);
+    };
+  }, [chartDom]);
 
-    chart
-      .cell()
-      .encode('y', 'year')
-      .encode('x', 'name')
-      .encode('color', 'value')
-      .style('inset', 0.5);
-    // 渲染可视化
-    chart.render();
+  // option改变
+  useEffect(() => {
+    if (option && instance.current) {
+      instance.current.hideLoading();
+      instance.current.setOption(option);
+    }
+  }, [option]);
 
-    return chart;
-  }
+  // 数据更新
+  useUpdateEffect(() => {
+    const series: any[] = [...option.series];
+    const xAxis: any[] = [...option.xAxis];
+    const yAxis: any[] = [...option.yAxis];
+    const visualMap: any = { ...option.visualMap };
+    data.forEach((value, index) => {
+      series[index].data = value;
+    });
+    xIndex.forEach((value, index) => {
+      xAxis[index].data = value;
+    });
+    xIndex.forEach((value, index) => {
+      yAxis[index].data = yIndex;
+    });
+    visualMap.min = min;
+    visualMap.max = max;
+    // console.log(option);
+    setOption({ ...option, series, xAxis, yAxis, visualMap });
+  }, [data]);
+
+  // 初始化option
+  useEffect(() => {
+    setOption({
+      grid: [
+        { left: '3%', top: '1%', width: '96%', height: '15%' },
+        { left: '3%', top: '17.6%', width: '96%', height: '15%' },
+        { left: '3%', top: '34.2%', width: '96%', height: '15%' },
+        { left: '3%', bottom: '34.2%', width: '96%', height: '15%' },
+        { left: '3%', bottom: '17.6%', width: '96%', height: '15%' },
+        { left: '3%', bottom: '1%', width: '96%', height: '15%' },
+      ],
+      tooltip: {
+        trigger: 'axis',
+        show: true,
+        formatter: (params: any) => {
+          return `${params[0].value[3]}`;
+        },
+      },
+      xAxis: new Array(6).fill(0).map((item, index) => {
+        return {
+          show: false,
+          gridIndex: index,
+          type: 'category',
+          data: [],
+        };
+      }),
+      yAxis: new Array(6).fill(0).map((item, index) => {
+        return {
+          show: false,
+          gridIndex: index,
+          type: 'category',
+          data: [],
+        };
+      }),
+      visualMap: {
+        min: 0,
+        max: 0,
+        top: '30%',
+        itemWidth: 10,
+        calculable: true,
+        realtime: false,
+        dimension: 2,
+        inRange: {
+          color: [
+            '#74add1',
+            '#abd9e9',
+            '#e0f3f8',
+            '#ffffbf',
+            '#fee090',
+            '#fdae61',
+            '#f46d43',
+            '#d73027',
+            '#a50026',
+          ],
+        },
+      },
+      series: new Array(6).fill(0).map((item, index) => {
+        return {
+          type: 'heatmap',
+          data: [],
+          xAxisIndex: index,
+          yAxisIndex: index,
+          emphasis: {
+            itemStyle: {
+              borderColor: '#333',
+              borderWidth: 1,
+            },
+          },
+          progressive: 1000,
+          animation: false,
+        };
+      }),
+      dataZoom: new Array(6).fill(0).map((item, index) => {
+        return { type: 'inside', xAxisIndex: index, filterMode: 'none' };
+      }),
+    });
+    getEmbedding();
+  }, []);
 
   return (
     <>
-      <div ref={container} style={{ width: '100%', height: '95%' }}></div>
+      <div ref={chartDom} style={{ width: '100%', height: '100%' }}></div>
     </>
   );
 };
